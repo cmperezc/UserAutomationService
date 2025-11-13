@@ -1,0 +1,22 @@
+# .gitignore
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+
+logs/
+screenshots/
+
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets
+secrets/
+*.key
+*.pem
