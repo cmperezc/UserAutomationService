@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # General
     debug: bool = False
     log_level: str = "INFO"
+
+    # Valores permitidos para validación de usuarios
+    allowed_request_types: list[str] = ["Apertura", "Activación"]
+    allowed_document_types: list[str] = ["C.C", "C.E"]
+    allowed_vinculation_types: list[str] = ["Estudiante"]
     
     class Config:
         env_file = ".env"
