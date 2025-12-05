@@ -23,14 +23,16 @@ class AppConnectoClient:
     usando Playwright para automatización web.
     """
 
-    def __init__(self, headless: bool = False):
+    def __init__(self, headless: bool = False, debug_screenshots: bool = False):
         """
         Inicializa el cliente de AppConnecto.
 
         Args:
             headless: Si True, ejecuta el navegador en modo headless (sin interfaz gráfica)
+            debug_screenshots: Si True, toma screenshots de todos los pasos (útil para debug)
         """
         self.headless = headless
+        self.debug_screenshots = debug_screenshots
         self.login_url = settings.appconnecto_url
         self.form_url = settings.appconnecto_form_url
         self.username = settings.appconnecto_user
@@ -47,7 +49,7 @@ class AppConnectoClient:
 
     async def _take_screenshot(self, name: str) -> str:
         """
-        Toma una captura de pantalla.
+        Toma una captura de pantalla (siempre).
 
         Args:
             name: Nombre descriptivo para el screenshot
@@ -63,6 +65,20 @@ class AppConnectoClient:
         await self.page.screenshot(path=str(filename))
         logger.debug(f"📸 Captura: {filename}")
         return str(filename)
+
+    async def _take_debug_screenshot(self, name: str) -> str:
+        """
+        Toma screenshot solo si debug_screenshots está activo.
+
+        Args:
+            name: Nombre descriptivo para el screenshot
+
+        Returns:
+            Ruta del archivo creado (vacío si debug_screenshots=False)
+        """
+        if self.debug_screenshots:
+            return await self._take_screenshot(name)
+        return ""
 
     async def _init_browser(self) -> None:
         """Inicializa el navegador y contexto de Playwright."""
@@ -106,9 +122,9 @@ class AppConnectoClient:
 
             # Navegar a la página de login
             await self.page.goto(self.login_url)
+            await self.page.wait_for_load_state("networkidle")
             await self.page.wait_for_selector("#username_val")
-            await asyncio.sleep(1)
-            await self._take_screenshot("01_pagina_login")
+            await self._take_debug_screenshot("01_pagina_login")
 
             # Llenar credenciales
             logger.info(f"   Usuario: {self.username}")
@@ -117,16 +133,15 @@ class AppConnectoClient:
 
             # Aceptar términos y condiciones
             await self.page.check("#tyc")
-            await asyncio.sleep(0.5)
 
-            await self._take_screenshot("02_credenciales_ingresadas")
+            await self._take_debug_screenshot("02_credenciales_ingresadas")
 
             # Click en botón de login
             await self.page.click("#btn-login")
 
             # Esperar a que redirija
-            await asyncio.sleep(3)
-            await self._take_screenshot("03_despues_login")
+            await asyncio.sleep(2)
+            await self._take_debug_screenshot("03_despues_login")
 
             # Verificar si el login fue exitoso
             current_url = self.page.url
@@ -211,18 +226,14 @@ class AppConnectoClient:
         username = user_data.get("identification_id", "unknown")
 
         try:
-            logger.info("=" * 70)
-            logger.info(f"👤 Creando usuario: {username}")
-            logger.info(f"   Nombre: {user_data.get('full_name')} {user_data.get('full_last_name')}")
-            logger.info("=" * 70)
+            logger.info(f"👤 Creando usuario: {username} ({user_data.get('full_name')} {user_data.get('full_last_name')})")
 
             # 1. Navegar al formulario
             await self.page.goto(self.form_url)
+            await self.page.wait_for_load_state("networkidle")
             await self.page.wait_for_selector("#form")
-            await asyncio.sleep(1)
 
             url_before = self.page.url
-            logger.debug(f"URL actual: {url_before}")
 
             # 2. Llenar formulario
             await self.page.fill("#id_username", username)
@@ -243,7 +254,7 @@ class AppConnectoClient:
             await self.page.fill("#id_email", user_data.get("institutional_email", ""))
             await self.page.fill("#id_password_field", settings.appconnecto_default_password)
 
-            await self._take_screenshot(f"formulario_lleno_{username}")
+            await self._take_debug_screenshot(f"formulario_lleno_{username}")
 
             # 3. Hacer scroll y enviar
             logger.info("📤 Enviando formulario...")
@@ -253,61 +264,80 @@ class AppConnectoClient:
             # Click con JavaScript
             await self.page.evaluate("document.getElementById('enviar').click()")
 
-            # 4. Esperar cambio de URL
+            # 4. Esperar respuesta del servidor: navegación o error
             try:
-                await self.page.wait_for_url(lambda url: url != url_before, timeout=5000)
-                url_after = self.page.url
+                # Esperar a que la URL cambie (máximo 3 segundos)
+                await self.page.wait_for_url(lambda url: url != url_before, timeout=3000)
+                url_changed = True
             except Exception:
-                # Si no cambió la URL, el usuario ya existe
-                logger.warning(f"⚠️  Usuario ya existe: {username}")
-                await self._take_screenshot(f"usuario_existe_{username}")
+                # Timeout: la URL no cambió
+                url_changed = False
+
+            # 5. Verificar si la URL cambió (usuario creado exitosamente)
+            if url_changed:
+                # Usuario creado exitosamente, continuar con página 2 (asignar rol)
+                logger.info(f"✅ Usuario creado, asignando rol...")
+                await self._take_debug_screenshot(f"pagina2_{username}")
+
+                # 6. Seleccionar rol
+                rol = self._map_vinculation_to_role(user_data.get("vinculation_type", "Estudiante"))
+                logger.info(f"👥 Seleccionando rol: {rol}")
+                await asyncio.sleep(1)
+
+                # Abrir dropdown de Select2
+                await self.page.click(".select2-selection--multiple")
+                await asyncio.sleep(1)
+
+                # Escribir en el campo de búsqueda
+                await self.page.fill(".select2-search__field", rol)
+                await asyncio.sleep(0.5)
+
+                # Click en la primera opción
+                await self.page.click(".select2-results__option")
+
+                # 7. Guardar cambios
+                logger.info("💾 Guardando usuario...")
+
+                await self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await asyncio.sleep(0.5)
+
+                await self.page.evaluate("document.querySelector('button[name=\"enviar\"]').click()")
+                await asyncio.sleep(2)
+
+                logger.info(f"✅ Usuario creado exitosamente: {username}")
+                await self._take_debug_screenshot(f"guardado_{username}")
+
+                return {
+                    "success": True,
+                    "username": username,
+                    "status": "created",
+                    "error": None
+                }
+
+            else:
+                # La URL NO cambió, verificar si hay mensaje de error
+                error_element = await self.page.query_selector("ul.errorlist li")
+                if error_element:
+                    error_text = await error_element.text_content()
+                    if "ya existe" in error_text.lower():
+                        logger.warning(f"⚠️  Usuario ya existe en AppConnecto: {username}")
+                        await self._take_screenshot(f"already_exists_{username}")
+                        return {
+                            "success": False,
+                            "username": username,
+                            "status": "already_exists",
+                            "error": error_text
+                        }
+
+                # URL no cambió y no hay errorlist conocido = error desconocido
+                logger.error(f"❌ Error desconocido creando usuario {username}")
+                await self._take_screenshot(f"error_unknown_{username}")
                 return {
                     "success": False,
                     "username": username,
-                    "status": "already_exists",
-                    "error": "Usuario ya existe en AppConnecto"
+                    "status": "error",
+                    "error": "La URL no cambió y no se encontró mensaje de error conocido"
                 }
-
-            logger.info(f"✅ URL cambió: {url_after}")
-            await self._take_screenshot(f"resultado_{username}")
-
-            # 5. Seleccionar rol
-            rol = self._map_vinculation_to_role(user_data.get("vinculation_type", "Estudiante"))
-            logger.info(f"👥 Seleccionando rol: {rol}")
-            await asyncio.sleep(1)
-
-            # Abrir dropdown de Select2
-            await self.page.click(".select2-selection--multiple")
-            await asyncio.sleep(1)
-
-            # Escribir en el campo de búsqueda
-            await self.page.fill(".select2-search__field", rol)
-            await asyncio.sleep(0.5)
-
-            # Click en la primera opción
-            await self.page.click(".select2-results__option")
-            logger.info(f"✅ Rol seleccionado: {rol}")
-            await asyncio.sleep(0.5)
-
-            # 6. Guardar cambios
-            logger.info("💾 Guardando usuario...")
-            await asyncio.sleep(0.5)
-
-            await self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(0.5)
-
-            await self.page.evaluate("document.querySelector('button[name=\"enviar\"]').click()")
-            await asyncio.sleep(2)
-
-            logger.info(f"✅ Usuario creado exitosamente: {username}")
-            await self._take_screenshot(f"guardado_{username}")
-
-            return {
-                "success": True,
-                "username": username,
-                "status": "created",
-                "error": None
-            }
 
         except Exception as e:
             logger.error(f"❌ Error creando usuario {username}: {e}")
@@ -345,12 +375,10 @@ class AppConnectoClient:
         already_exists = []
         errors = []
 
-        logger.info("=" * 70)
-        logger.info("📋 INICIANDO CREACIÓN DE USUARIOS EN APPCONNECTO")
-        logger.info("=" * 70)
+        logger.info(f"📋 Iniciando creación de {len(users)} usuarios en AppConnecto")
 
         for i, user_data in enumerate(users, 1):
-            logger.info(f"\n[{i}/{len(users)}]")
+            logger.info(f"[{i}/{len(users)}]")
 
             try:
                 result = await self.create_user(user_data)
@@ -412,7 +440,8 @@ class AppConnectoClient:
 
 async def create_users_in_appconnecto(
     users: list[dict],
-    headless: bool = False
+    headless: bool = False,
+    debug_screenshots: bool = False
 ) -> dict:
     """
     Función helper para crear usuarios en AppConnecto de forma simple.
@@ -420,6 +449,7 @@ async def create_users_in_appconnecto(
     Args:
         users: Lista de usuarios a crear
         headless: Si True, ejecuta en modo headless
+        debug_screenshots: Si True, toma screenshots de todos los pasos
 
     Returns:
         Diccionario con resultados de creación
@@ -428,7 +458,7 @@ async def create_users_in_appconnecto(
         >>> results = await create_users_in_appconnecto(users_list)
         >>> print(f"Creados: {len(results['created'])}")
     """
-    client = AppConnectoClient(headless=headless)
+    client = AppConnectoClient(headless=headless, debug_screenshots=debug_screenshots)
 
     try:
         # Login
