@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 class Settings(BaseSettings):
-    """Configuración centralizada desde variables de entorno"""
+    """Configuración centralizada desde   variables de entorno"""
     
     # Azure
     azure_tenant_id: str
@@ -13,12 +13,16 @@ class Settings(BaseSettings):
     appconnecto_url: str
     appconnecto_user: str
     appconnecto_pass: str
-    appconnecto_form_url: str = "https://ecr.appconnecto.com/es/headquarters/principal/member/create"
-    appconnecto_default_password: str = "ECR2022"
+    appconnecto_form_url: str
+    appconnecto_default_password: str
     appconnecto_default_birth_date: str = "1990-01-01"
 
+    # Email
+    email_sender_address: str
+    email_subject_welcome: str = "Bienvenido a la ECR - Credenciales de acceso"
+
     # Database
-    database_url: str
+    database_url: str = ""
     
     # General
     debug: bool = False

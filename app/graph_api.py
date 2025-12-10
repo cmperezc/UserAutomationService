@@ -415,6 +415,76 @@ class GraphAPIClient:
                     logger.error(f"Error verificando membresía: {error_text}")
                     return False
 
+    async def send_email(
+        self,
+        to_email: str,
+        subject: str,
+        body_html: str,
+        from_email: str = None
+    ) -> bool:
+        """
+        Envía un correo usando Microsoft Graph API.
+
+        Args:
+            to_email: Dirección de correo del destinatario
+            subject: Asunto del correo
+            body_html: Contenido HTML del correo
+            from_email: Dirección del remitente (opcional, usa settings.email_sender_address por defecto)
+
+        Returns:
+            True si el correo se envió exitosamente, False en caso contrario
+
+        Example:
+            >>> success = await client.send_email(
+            ...     to_email="usuario@gmail.com",
+            ...     subject="Bienvenido",
+            ...     body_html="<p>Hola</p>"
+            ... )
+        """
+        from app.config import get_settings
+        settings = get_settings()
+
+        if from_email is None:
+            from_email = settings.email_sender_address
+
+        token = token = self.get_token()
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json'
+        }
+
+        # Endpoint para enviar correo
+        url = f"https://graph.microsoft.com/v1.0/users/{from_email}/sendMail"
+
+        # Cuerpo del request
+        payload = {
+            "message": {
+                "subject": subject,
+                "body": {
+                    "contentType": "HTML",
+                    "content": body_html
+                },
+                "toRecipients": [
+                    {
+                        "emailAddress": {
+                            "address": to_email
+                        }
+                    }
+                ]
+            },
+            "saveToSentItems": False
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, json=payload) as response:
+                if response.status == 202:
+                    logger.debug(f"Correo enviado exitosamente a {to_email}")
+                    return True
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Error enviando correo (status {response.status}): {error_text}")
+                    return False
+
 
 # Singleton
 _graph_client: Optional[GraphAPIClient] = None
