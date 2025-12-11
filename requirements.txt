@@ -28,3 +28,7 @@ Jinja2==3.1.2
 
 # Web Automation
 playwright>=1.40.0
+
+# PDF and Excel Reports
+reportlab==4.0.7
+openpyxl==3.1.2

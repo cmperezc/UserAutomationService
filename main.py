@@ -27,6 +27,7 @@ from app.graph_api import GraphAPIClient
 from app.user_creator import UserCreator
 from app.appconnecto import AppConnectoClient
 from app.email_sender import EmailSender
+from app.report_generator import ReportGenerator
 
 settings = get_settings()
 
@@ -324,7 +325,53 @@ async def main():
         print_summary(new_users, existing_users)
 
         if not new_users:
-            print("\n⚠️  No hay usuarios nuevos para crear. Finalizando.")
+            print("\n⚠️  No hay usuarios nuevos para crear.")
+            print("Se generará un reporte de la situación actual.")
+
+            # Generar reportes incluso sin usuarios nuevos
+            report_data = {
+                "excel_file": excel_path,
+                "timestamp": datetime.now().isoformat(),
+                "users": all_users,
+                "summary": {
+                    "total_in_excel": len(all_users),
+                    "new_users": 0,
+                    "existing_users": len(existing_users),
+                    "office365_created": 0,
+                    "appconnecto_created": 0,
+                    "emails_sent": 0
+                },
+                "office365_results": {
+                    "created": [],
+                    "failed": []
+                },
+                "appconnecto_results": {
+                    "created": [],
+                    "already_exist": [],
+                    "failed": []
+                },
+                "email_results": {
+                    "sent": [],
+                    "failed": [],
+                    "total": 0
+                }
+            }
+
+            print("\n" + "="*80)
+            print("📄 GENERANDO REPORTES")
+            print("="*80)
+
+            report_gen = ReportGenerator()
+            try:
+                reports = report_gen.generate_both(report_data)
+                print(f"\n✅ Reportes generados exitosamente:")
+                print(f"   📄 PDF: {reports['pdf']}")
+                print(f"   📊 Excel: {reports['excel']}")
+            except Exception as e:
+                logger.error(f"Error generando reportes: {e}")
+                print(f"\n⚠️  Error generando reportes: {e}")
+
+            logger.info("Proceso finalizado - No había usuarios nuevos")
             return
 
         if not get_user_confirmation():
@@ -369,11 +416,48 @@ async def main():
             print("\n⚠️  No hay usuarios para enviar correos.")
             email_results = {"sent": [], "failed": [], "total": 0}
 
-        # 8. Guardar reportes
+        # 8. Guardar reportes JSON
         save_reports(logs_dir, timestamp, office365_users, appconnecto_results, email_results)
 
         # 9. Mostrar resumen final
         print_final_summary(office365_users, appconnecto_results, email_results)
+
+        # 10. Generar reportes profesionales (PDF y Excel)
+        print("\n" + "="*80)
+        print("📄 GENERANDO REPORTES PROFESIONALES")
+        print("="*80)
+
+        report_data = {
+            "excel_file": excel_path,
+            "timestamp": datetime.now().isoformat(),
+            "users": all_users,
+            "summary": {
+                "total_in_excel": len(all_users),
+                "new_users": len(new_users),
+                "existing_users": len(existing_users),
+                "office365_created": len(office365_users),
+                "appconnecto_created": len(appconnecto_results.get('created', [])),
+                "emails_sent": len(email_results.get('sent', []))
+            },
+            "office365_results": {
+                "created": office365_users,
+                "failed": [u for u in all_users if u.get('status') == 'new' and not u.get('office365_created')]
+            },
+            "appconnecto_results": appconnecto_results,
+            "email_results": email_results
+        }
+
+        report_gen = ReportGenerator()
+
+        try:
+            reports = report_gen.generate_both(report_data)
+            print(f"\n✅ Reportes generados exitosamente:")
+            print(f"   📄 PDF: {reports['pdf']}")
+            print(f"   📊 Excel: {reports['excel']}")
+        except Exception as e:
+            logger.error(f"Error generando reportes profesionales: {e}")
+            print(f"\n⚠️  Advertencia: No se pudieron generar reportes PDF/Excel: {e}")
+            print("   Los reportes JSON se generaron correctamente en logs/")
 
         logger.info("Proceso completado exitosamente")
 
