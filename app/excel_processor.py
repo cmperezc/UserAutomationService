@@ -36,7 +36,6 @@ class ExcelProcessor:
         "Tipo de Identificación": "type_document",
         "Número de Identificación": "identification_id",
         "Tipo de Vinculación": "vinculation_type",
-        "Dependencia Administrativa / Programa Académico": "academic_program",
         "Correo Electrónico Personal": "email_personal"
     }
 

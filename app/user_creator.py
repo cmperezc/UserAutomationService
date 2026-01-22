@@ -35,7 +35,7 @@ class UserCreator:
         Determina el grupo según el tipo de vinculación.
 
         Args:
-            vinculation_type: Tipo de vinculación ("Estudiante" o "Docente")
+            vinculation_type: Tipo de vinculación ("Estudiante", "Docente" o "Administrativo")
 
         Returns:
             Nombre del grupo de Office 365
@@ -43,7 +43,9 @@ class UserCreator:
         if vinculation_type == "Estudiante":
             return settings.student_group
         elif vinculation_type == "Docente":
-            return settings.teacher_group
+            return settings.teaching_group
+        elif vinculation_type == "Administrativo":
+            return settings.administrative_group
         else:
             logger.warning(f"Tipo de vinculación desconocido: {vinculation_type}. Usando grupo de estudiantes por defecto.")
             return settings.student_group

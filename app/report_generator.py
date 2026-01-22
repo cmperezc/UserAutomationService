@@ -398,7 +398,7 @@ class ReportGenerator:
 
         headers = [
             "Nombre", "Apellido", "Identificación", "Tipo Doc", "Email Personal",
-            "Email Institucional", "Tipo Vinculación", "Programa Académico",
+            "Email Institucional", "Tipo Vinculación",
             "Status General", "Office 365", "AppConnecto", "Correo Enviado",
             "Password", "Observaciones"
         ]
@@ -421,11 +421,10 @@ class ReportGenerator:
             ws_users.cell(row=row_num, column=5, value=user.get('email_personal', ''))
             ws_users.cell(row=row_num, column=6, value=user.get('institutional_email', ''))
             ws_users.cell(row=row_num, column=7, value=user.get('vinculation_type', ''))
-            ws_users.cell(row=row_num, column=8, value=user.get('academic_program', ''))
 
             # Status
             status = user.get('status', 'unknown')
-            ws_users.cell(row=row_num, column=9, value=status)
+            ws_users.cell(row=row_num, column=8, value=status)
 
             # Usar texto claro en lugar de símbolos Unicode
             # Office 365: SI (creado), YA EXISTE (ya existía), NO (error al crear)
@@ -435,25 +434,25 @@ class ReportGenerator:
                 o365 = "YA EXISTE"
             else:
                 o365 = "NO"
-            ws_users.cell(row=row_num, column=10, value=o365)
+            ws_users.cell(row=row_num, column=9, value=o365)
 
             # AppConnecto: SI (nuevo), YA EXISTE (ya estaba)
             app = "SI" if status == 'new' else "YA EXISTE"
-            ws_users.cell(row=row_num, column=11, value=app)
+            ws_users.cell(row=row_num, column=10, value=app)
 
             email_sent = "SI" if user.get('password_generated') else "NO"
-            ws_users.cell(row=row_num, column=12, value=email_sent)
+            ws_users.cell(row=row_num, column=11, value=email_sent)
 
             # Password (solo si fue generado)
             password = user.get('password_generated', '')
-            ws_users.cell(row=row_num, column=13, value=password)
+            ws_users.cell(row=row_num, column=12, value=password)
 
             # Observaciones
             obs = user.get('creation_error', user.get('status_message', ''))
-            ws_users.cell(row=row_num, column=14, value=obs)
+            ws_users.cell(row=row_num, column=13, value=obs)
 
             # Aplicar bordes
-            for col in range(1, 15):
+            for col in range(1, 14):
                 ws_users.cell(row=row_num, column=col).border = border
                 ws_users.cell(row=row_num, column=col).alignment = Alignment(vertical='center')
 

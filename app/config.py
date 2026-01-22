@@ -29,13 +29,14 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # Valores permitidos para validación de usuarios
-    allowed_request_types: list[str] = ["Apertura", "Activación"]
+    allowed_request_types: list[str] = ["Creacion", "Desactivacion", "Reactivacion"]
     allowed_document_types: list[str] = ["C.C", "C.E"]
-    allowed_vinculation_types: list[str] = ["Estudiante", "Docente"]
+    allowed_vinculation_types: list[str] = ["Estudiante", "Docente", "Administrativo"]
 
     # Mapeo de tipos de vinculación a grupos de Office 365
     student_group: str = "Estudiantes Licencias A5"
-    teacher_group: str = "Administrativos Licencia A5"
+    administrative_group: str = "Administrativos Licencia A5"
+    teaching_group: str = "Docentes Licencia A5"
 
     # Configuración de contraseñas
     password_length: int = 12

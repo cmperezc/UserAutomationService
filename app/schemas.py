@@ -20,13 +20,12 @@ class UserSchema(BaseModel):
     aplicando reglas de formato, longitud y valores permitidos.
 
     Attributes:
-        request_type: Tipo de solicitud (solo "Apertura" permitido)
+        request_type: Tipo de solicitud (Creacion, Desactivacion o Reactivacion)
         full_name: Nombres completos del estudiante
         full_last_name: Apellidos completos del estudiante
         type_document: Tipo de documento (C.C o C.E)
         identification_id: Número de identificación (solo dígitos)
-        vinculation_type: Tipo de vinculación (solo "Estudiante")
-        academic_program: Programa académico
+        vinculation_type: Tipo de vinculación (Estudiante, Docente o Administrativo)
         email_personal: Email personal del estudiante
         first_name: Primer nombre (calculado)
         first_last_name: Primer apellido (calculado)
@@ -40,7 +39,6 @@ class UserSchema(BaseModel):
     type_document: str = Field(..., description="Tipo de documento de identidad")
     identification_id: str = Field(..., min_length=1, max_length=20, description="Número de identificación")
     vinculation_type: str = Field(..., description="Tipo de vinculación")
-    academic_program: str = Field(..., min_length=1, description="Programa académico")
     email_personal: EmailStr = Field(..., description="Email personal")
 
     # Campos calculados
@@ -228,20 +226,6 @@ class UserSchema(BaseModel):
 
         return normalized
 
-    @field_validator('academic_program')
-    @classmethod
-    def validate_academic_program(cls, v: str) -> str:
-        """
-        Valida y normaliza el programa académico.
-
-        Args:
-            v: Programa académico
-
-        Returns:
-            Programa académico sin espacios extras
-        """
-        return v.strip()
-
     def extract_names_for_email(self) -> 'UserSchema':
         """
         Extrae nombres y apellidos individuales para generación de email.
@@ -274,13 +258,12 @@ class UserSchema(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "request_type": "Apertura",
+                    "request_type": "Creacion",
                     "full_name": "Laura Sofia",
                     "full_last_name": "Becerra Sandoval",
                     "type_document": "C.C",
                     "identification_id": "1000227618",
                     "vinculation_type": "Estudiante",
-                    "academic_program": "FISIOTERAPIA",
                     "email_personal": "laura.becerra@gmail.com",
                     "first_name": "Laura",
                     "first_last_name": "Becerra",
