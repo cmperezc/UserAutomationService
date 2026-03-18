@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python fill_user_licenses_optimized.py:*)"
+    ]
+  }
+}

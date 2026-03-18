@@ -415,6 +415,43 @@ class GraphAPIClient:
                     logger.error(f"Error verificando membresía: {error_text}")
                     return False
 
+    async def get_user_id_by_email(self, email: str) -> str | None:
+        """Obtiene el object ID de un usuario dado su email."""
+        token = self.get_token()
+        headers = {"Authorization": f"Bearer {token}"}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://graph.microsoft.com/v1.0/users/{email}?$select=id",
+                headers=headers
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get('id')
+                else:
+                    logger.error(f"No se encontró usuario con email {email} (status {response.status})")
+                    return None
+
+    async def remove_user_from_group(self, user_id: str, group_id: str, group_name: str = "") -> bool:
+        """Remueve un usuario de un grupo."""
+        logger.info(f"Removiendo usuario {user_id} de grupo: {group_name or group_id}")
+
+        token = self.get_token()
+        headers = {"Authorization": f"Bearer {token}"}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.delete(
+                f"https://graph.microsoft.com/v1.0/groups/{group_id}/members/{user_id}/$ref",
+                headers=headers
+            ) as response:
+                if response.status == 204:
+                    logger.info(f"Usuario removido del grupo exitosamente")
+                    return True
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Error removiendo usuario del grupo (status {response.status}): {error_text}")
+                    return False
+
     async def send_email(
         self,
         to_email: str,
